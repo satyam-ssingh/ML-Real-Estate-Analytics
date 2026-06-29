@@ -14,6 +14,7 @@ This project applies Machine Learning techniques to analyze real estate buyer be
 
 This project was developed as part of the Unified Mentor Internship in collaboration with Parcl Co. Limited.
 
+---
 
 # 🎯 Objectives
 
