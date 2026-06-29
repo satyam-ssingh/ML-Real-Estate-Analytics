@@ -8,6 +8,14 @@ This project was developed as part of the Unified Mentor Internship in collabora
 
 ---
 
+# 🌐 Live Dashboard
+
+🚀 Explore the live interactive dashboard here:
+
+**👉 https://ml-real-estate-analytics-fyqdw6myu7wmezt3wnvbm5.streamlit.app/**
+
+---
+
 # 🎯 Objectives
 
 - Clean and preprocess raw client and property datasets.
