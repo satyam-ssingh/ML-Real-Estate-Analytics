@@ -1,13 +1,5 @@
 # 🏡 Machine Learning Based Buyer Segmentation & Investment Profiling for Real Estate Market Intelligence
 
-## 📌 Project Overview
-
-This project applies Machine Learning techniques to analyze real estate buyer behavior and automatically segment buyers into meaningful investment profiles. The solution helps real estate companies understand customer behavior, improve marketing strategies, and identify high-value investment opportunities.
-
-This project was developed as part of the Unified Mentor Internship in collaboration with Parcl Co. Limited.
-
----
-
 # 🌐 Live Dashboard
 
 🚀 Explore the live interactive dashboard here:
@@ -15,6 +7,13 @@ This project was developed as part of the Unified Mentor Internship in collabora
 **👉 https://ml-real-estate-analytics-fyqdw6myu7wmezt3wnvbm5.streamlit.app/**
 
 ---
+
+## 📌 Project Overview
+
+This project applies Machine Learning techniques to analyze real estate buyer behavior and automatically segment buyers into meaningful investment profiles. The solution helps real estate companies understand customer behavior, improve marketing strategies, and identify high-value investment opportunities.
+
+This project was developed as part of the Unified Mentor Internship in collaboration with Parcl Co. Limited.
+
 
 # 🎯 Objectives
 
