@@ -218,3 +218,7 @@ Please consider giving this repository a ⭐ on GitHub.
 ## 📄 License
 
 This project is developed for educational and internship purposes.
+
+## Run 
+
+python -m streamlit run app.py
