@@ -167,7 +167,8 @@ python eda_analysis.py
 ## Launch Dashboard
 
 ```bash
-streamlit run app.py
+python -m streamlit run app.py
+
 ```
 
 ---
@@ -219,6 +220,3 @@ Please consider giving this repository a ⭐ on GitHub.
 
 This project is developed for educational and internship purposes.
 
-## Run 
-
-python -m streamlit run app.py
