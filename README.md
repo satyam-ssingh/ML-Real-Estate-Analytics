@@ -38,7 +38,7 @@ This project was developed as part of the **Unified Mentor Internship**, in coll
 
 🚀 Explore the live interactive dashboard here:
 
-**👉 [ml-real-estate-analytics-fyqdw6myu7wmezt3wnvbm5.streamlit.app](https://ml-real-estate-analytics-fyqdw6myu7wmezt3wnvbm5.streamlit.app/)**
+**👉 [ml-real-estate-analytics-fyqdw6myu7wmezt3wnvbm5.streamlit.app](https://ml-real-estate-analytics-hjw8hkctaaqbbvmucd3hff.streamlit.app/)**
 
 ---
 
