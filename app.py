@@ -115,14 +115,86 @@ def inject_css(theme: str):
             display:inline-block; background: {accent}22; color:{accent};
             padding: 3px 10px; border-radius: 999px; font-size: 12px; font-weight: 700; margin-right:6px;
         }}
+        /* --- theme-aware text color everywhere --- */
+        h1, h2, h3, h4, h5, h6, p, li, label, span,
+        .stMarkdown, .stMarkdown p, .stMarkdown li,
+        [data-testid="stSidebar"] * ,
+        [data-testid="stMetricLabel"], [data-testid="stMetricValue"],
+        .stSelectbox label, .stMultiSelect label, .stSlider label,
+        .stRadio label, .stTextInput label, .stDateInput label {{
+            color: {text} !important;
+        }}
+        [data-testid="stSidebar"] {{
+            background-color: {card_bg};
+            border-right: 1px solid rgba(120,120,120,0.15);
+        }}
+        .stDataFrame, .stTable {{
+            color: {text};
+        }}
         div[data-testid="stMetric"] {{
             background: {card_bg}; border-radius: 12px; padding: 10px; border: 1px solid rgba(120,120,120,0.12);
+        }}
+        /* --- fix multiselect / selectbox dropdown boxes --- */
+        div[data-baseweb="select"] > div {{
+            background-color: {card_bg} !important;
+            border-color: rgba(120,120,120,0.35) !important;
+        }}
+        div[data-baseweb="select"] span,
+        div[data-baseweb="select"] div {{
+            color: {text} !important;
+        }}
+        /* dropdown ka opened menu (jab click karke options dikhte hain) */
+        ul[data-baseweb="menu"] {{
+            background-color: {card_bg} !important;
+        }}
+        li[role="option"] {{
+            color: {text} !important;
+            background-color: {card_bg} !important;
+        }}
+        li[role="option"]:hover {{
+            background-color: {bg} !important;
+        }}
+        /* --- fix buttons (Refresh Data, Download, Generate PDF, etc) --- */
+        .stButton > button, .stDownloadButton > button {{
+            background-color: {accent} !important;
+            color: #ffffff !important;
+            border: none !important;
+            font-weight: 600 !important;
+        }}
+        .stButton > button:hover, .stDownloadButton > button:hover {{
+            background-color: {accent} !important;
+            opacity: 0.85;
+            color: #ffffff !important;
+        }}
+        .stButton > button p, .stDownloadButton > button p {{
+            color: #ffffff !important;
+        }}
+        /* --- fix metric value truncation (Segment Summary Cards etc) --- */
+        [data-testid="stMetricValue"] {{
+            font-size: 20px !important;
+            white-space: normal !important;
+            overflow: visible !important;
+            line-height: 1.2 !important;
+        }}
+        [data-testid="stMetric"] {{
+            overflow: visible !important;
         }}
         </style>
         """,
         unsafe_allow_html=True,
     )
 
+
+def format_money(val):
+    try:
+        val = float(val)
+    except (TypeError, ValueError):
+        return "N/A"
+    if abs(val) >= 1_000_000:
+        return f"${val/1_000_000:.2f}M"
+    if abs(val) >= 1_000:
+        return f"${val/1_000:.1f}K"
+    return f"${val:,.0f}"
 
 def kpi_card(label, value, col):
     with col:
@@ -236,10 +308,9 @@ st.sidebar.markdown(f"**Total Records in File:** {len(df)}")
 def ms(col, label):
     if col in df.columns:
         opts = sorted(df[col].dropna().unique().tolist())
-        default_val = [st.session_state.map_click_country] if (col == "country" and st.session_state.map_click_country in opts) else opts
+        default_val = [st.session_state.map_click_country] if (col == "country" and st.session_state.map_click_country in opts) else []
         return st.sidebar.multiselect(label, opts, default=default_val)
     return []
-
 
 sel_countries = ms("country", "Country")
 sel_regions = ms("region", "Region")
@@ -247,12 +318,12 @@ sel_segments = ms("Segment_Name", "Segment")
 sel_purpose = st.sidebar.multiselect(
     "Acquisition Purpose",
     sorted(df["acquisition_purpose"].dropna().unique().tolist()) if "acquisition_purpose" in df.columns else [],
-    default=sorted(df["acquisition_purpose"].dropna().unique().tolist()) if "acquisition_purpose" in df.columns else [],
+    default=[],
 )
 sel_client_type = st.sidebar.multiselect(
     "Client Type",
     sorted(df["client_type"].dropna().unique().tolist()) if "client_type" in df.columns else [],
-    default=sorted(df["client_type"].dropna().unique().tolist()) if "client_type" in df.columns else [],
+    default=[],
 )
 
 st.sidebar.markdown("---")
@@ -411,26 +482,25 @@ with tab_overview:
         else:
             st.info("Not enough time-series data points to build a trend line.")
 
-    c1, c2 = st.columns(2)
-    with c1:
-        st.markdown('<div class="section-title">🏆 Top Buyers Leaderboard</div>', unsafe_allow_html=True)
-        cols_for_lb = [c for c in ["client_id", "country", "Segment_Name", "sale_price", "CLV", "Purchase_Likelihood"] if c in filtered_df.columns]
-        leaderboard = filtered_df.sort_values("CLV", ascending=False)[cols_for_lb].head(10)
-        st.dataframe(leaderboard, width="stretch")
+    st.markdown('<div class="section-title">🏆 Top Buyers Leaderboard</div>', unsafe_allow_html=True)
+    cols_for_lb = [c for c in ["client_id", "country", "Segment_Name", "sale_price", "CLV", "Purchase_Likelihood"] if c in filtered_df.columns]
+    leaderboard = filtered_df.sort_values("CLV", ascending=False)[cols_for_lb].head(10)
+    st.dataframe(leaderboard, width="stretch")
 
-    with c2:
-        st.markdown('<div class="section-title">⚠️ Anomaly Detection</div>', unsafe_allow_html=True)
-        num_cols = [c for c in ["Age", "income", "sale_price", "satisfaction_score", "CLV", "Purchase_Likelihood"] if c in filtered_df.columns]
-        if SKLEARN_OK and len(num_cols) >= 3 and len(filtered_df) >= 20:
-            iso_data = filtered_df[num_cols].fillna(filtered_df[num_cols].median())
-            model = IsolationForest(contamination=0.03, random_state=42)
-            preds = model.fit_predict(iso_data)
-            anomalies = filtered_df.loc[preds == -1]
-            st.caption(f"{len(anomalies)} unusual client(s) flagged out of {len(filtered_df)}.")
-            show_cols = [c for c in ["client_id", "country", "Segment_Name"] + num_cols if c in anomalies.columns]
-            st.dataframe(anomalies[show_cols].head(15), width="stretch")
-        else:
-            st.info("Anomaly detection needs scikit-learn and enough numeric records (≥20).")
+    st.markdown("<br>", unsafe_allow_html=True)
+
+    st.markdown('<div class="section-title">⚠️ Anomaly Detection</div>', unsafe_allow_html=True)
+    num_cols = [c for c in ["Age", "income", "sale_price", "satisfaction_score", "CLV", "Purchase_Likelihood"] if c in filtered_df.columns]
+    if SKLEARN_OK and len(num_cols) >= 3 and len(filtered_df) >= 20:
+        iso_data = filtered_df[num_cols].fillna(filtered_df[num_cols].median())
+        model = IsolationForest(contamination=0.03, random_state=42)
+        preds = model.fit_predict(iso_data)
+        anomalies = filtered_df.loc[preds == -1]
+        st.caption(f"{len(anomalies)} unusual client(s) flagged out of {len(filtered_df)}.")
+        show_cols = [c for c in ["client_id", "country", "Segment_Name"] + num_cols if c in anomalies.columns]
+        st.dataframe(anomalies[show_cols].head(15), width="stretch")
+    else:
+        st.info("Anomaly detection needs scikit-learn and enough numeric records (≥20).")
 
 # ==========================================================
 # TAB 2: SEGMENTATION
@@ -665,7 +735,7 @@ with tab_insights:
                     m1.metric("Clients", seg_data["client_id"].nunique() if "client_id" in seg_data.columns else len(seg_data))
                     m2.metric("Avg Age", round(seg_data["Age"].mean(), 1) if "Age" in seg_data.columns and len(seg_data) else "N/A")
                     m3.metric("Avg Satisfaction", round(seg_data["satisfaction_score"].mean(), 2) if "satisfaction_score" in seg_data.columns and len(seg_data) else "N/A")
-                    m4.metric("Avg CLV", f"${seg_data['CLV'].mean():,.0f}")
+                    m4.metric("Avg CLV", format_money(seg_data["CLV"].mean()) if "CLV" in seg_data.columns and len(seg_data) else "N/A")
                 seg_idx += 1
 
     st.markdown('<div class="section-title">4. Segment Insights Panel</div>', unsafe_allow_html=True)
@@ -802,6 +872,8 @@ with tab_sim:
         sim_loan = st.selectbox("Loan Applied", ["Yes", "No"])
         sim_purpose = st.selectbox("Acquisition Purpose",
                                     sorted(df["acquisition_purpose"].dropna().unique().tolist()) if "acquisition_purpose" in df.columns else ["Investment"])
+        sim_client_type = st.selectbox("Client Type",
+                                        sorted(df["client_type"].dropna().unique().tolist()) if "client_type" in df.columns else ["Individual"])
 
     # ---- Predicted CLV (same formula family as the pipeline) ----
     sim_clv = sim_price * (sim_satisfaction / 10) * 2.2  # midpoint of 1.5-3.0 multiplier range
@@ -818,23 +890,69 @@ with tab_sim:
     kpi_card("Predicted Purchase Likelihood", f"{sim_likelihood:.1f} / 100", r2)
 
     st.markdown('<div class="section-title">Segment Recommendation Engine</div>', unsafe_allow_html=True)
-    feature_cols = [c for c in ["Age", "income", "sale_price", "satisfaction_score"] if c in df.columns]
+    numeric_feats = [c for c in ["Age", "income", "sale_price", "satisfaction_score"] if c in df.columns]
+    categorical_feats = [c for c in ["client_type", "acquisition_purpose"] if c in df.columns]
 
-    if SKLEARN_OK and "Segment_Name" in df.columns and len(feature_cols) >= 3:
+    if SKLEARN_OK and "Segment_Name" in df.columns and len(numeric_feats) >= 3:
+
+        # Show how the segments are distributed in the data — if one segment
+        # (e.g. Luxury Investors) dominates, the vote will lean toward it
+        # for most "typical" slider values. This isn't a bug, it's the data.
+        seg_dist = df["Segment_Name"].value_counts(normalize=True).mul(100).round(1)
+        with st.expander("ℹ️ Why does the recommendation lean toward one segment?", expanded=True):
+            st.write(
+                "The recommender now looks at both **numeric traits** (Age, Income, Sale Price, "
+                "Satisfaction) and **categorical traits** (Client Type, Acquisition Purpose) of the "
+                "7 nearest buyers to your simulated profile. Segments that are mostly separated by "
+                "category (e.g. Corporate Buyers = companies) rather than by numbers were previously "
+                "invisible to the model — this should now surface them correctly. Current segment "
+                "share in the data:"
+            )
+            st.dataframe(seg_dist.rename("Share (%)"), use_container_width=True)
+
         @st.cache_resource(show_spinner=False)
-        def train_knn(_df, feats):
-            X = _df[feats].fillna(_df[feats].median())
-            y = _df["Segment_Name"]
-            scaler = StandardScaler().fit(X)
-            Xs = scaler.transform(X)
-            knn = KNeighborsClassifier(n_neighbors=7).fit(Xs, y)
-            return scaler, knn
+        def train_knn(_df, num_feats, cat_feats):
+            X_num = _df[num_feats].fillna(_df[num_feats].median())
+            scaler = StandardScaler().fit(X_num)
+            Xs_num = scaler.transform(X_num)
 
-        scaler, knn = train_knn(df, feature_cols)
-        sim_vector = pd.DataFrame([{
-            "Age": sim_age, "income": sim_income, "sale_price": sim_price, "satisfaction_score": sim_satisfaction
-        }])[feature_cols]
-        sim_scaled = scaler.transform(sim_vector)
+            cat_dummies = pd.DataFrame(index=_df.index)
+            cat_columns_used = []
+            if cat_feats:
+                cat_dummies = pd.get_dummies(_df[cat_feats].astype(str), prefix=cat_feats)
+                cat_columns_used = cat_dummies.columns.tolist()
+                # Weight categorical match as strongly as the numeric block combined,
+                # so a Corporate Buyer isn't drowned out by 4 numeric dimensions.
+                cat_weight = np.sqrt(len(num_feats)) if cat_columns_used else 1.0
+                Xs_cat = cat_dummies.values.astype(float) * cat_weight
+                Xs = np.hstack([Xs_num, Xs_cat])
+            else:
+                Xs = Xs_num
+
+            y = _df["Segment_Name"]
+            knn = KNeighborsClassifier(n_neighbors=7, weights="distance").fit(Xs, y)
+            return scaler, cat_columns_used, knn
+
+        scaler, cat_columns_used, knn = train_knn(df, numeric_feats, categorical_feats)
+
+        sim_row = {"Age": sim_age, "income": sim_income, "sale_price": sim_price, "satisfaction_score": sim_satisfaction}
+        sim_vector = pd.DataFrame([sim_row])[numeric_feats]
+        sim_scaled_num = scaler.transform(sim_vector)
+
+        if cat_columns_used:
+            sim_cat_raw = {}
+            if "client_type" in categorical_feats:
+                sim_cat_raw["client_type"] = sim_client_type
+            if "acquisition_purpose" in categorical_feats:
+                sim_cat_raw["acquisition_purpose"] = sim_purpose
+            sim_cat_df = pd.DataFrame([sim_cat_raw]).astype(str)
+            sim_dummies = pd.get_dummies(sim_cat_df, prefix=categorical_feats)
+            sim_dummies = sim_dummies.reindex(columns=cat_columns_used, fill_value=0)
+            cat_weight = np.sqrt(len(numeric_feats))
+            sim_scaled = np.hstack([sim_scaled_num, sim_dummies.values.astype(float) * cat_weight])
+        else:
+            sim_scaled = sim_scaled_num
+
         predicted_segment = knn.predict(sim_scaled)[0]
         proba = knn.predict_proba(sim_scaled)[0]
         classes = knn.classes_
@@ -843,19 +961,28 @@ with tab_sim:
 
         proba_df = pd.DataFrame({"Segment": classes, "Confidence": proba}).sort_values("Confidence", ascending=False)
         st.plotly_chart(px.bar(proba_df, x="Segment", y="Confidence", color="Segment",
-                                title="Segment Match Confidence (K-Nearest-Neighbors, k=7)"),
+                                title="Segment Match Confidence (K-Nearest-Neighbors, k=7, numeric + categorical)"),
                          width="stretch")
 
-        # Reasoning: compare simulated buyer to segment averages
+        # Reasoning: compare simulated buyer to segment averages (numeric feats only)
+        feature_cols = numeric_feats
         seg_avg = df.groupby("Segment_Name")[feature_cols].mean()
         if predicted_segment in seg_avg.index:
             comp = seg_avg.loc[predicted_segment]
             reasoning = []
             for feat in feature_cols:
-                diff = sim_vector[feat].iloc[0] - comp[feat]
-                direction = "above" if diff > 0 else "below"
-                reasoning.append(f"- **{feat}** is {direction} the *{predicted_segment}* segment average "
-                                  f"({sim_vector[feat].iloc[0]:,.0f} vs {comp[feat]:,.0f}).")
+                sim_val = sim_vector[feat].iloc[0]
+                seg_val = comp[feat]
+                diff = sim_val - seg_val
+                # Treat anything within 2% of the segment average as "similar"
+                # instead of mislabeling near-identical numbers as above/below.
+                tolerance = max(abs(seg_val) * 0.02, 0.05)
+                if abs(diff) <= tolerance:
+                    relation = "about the same as"
+                else:
+                    relation = "above" if diff > 0 else "below"
+                reasoning.append(f"- **{feat}** is {relation} the *{predicted_segment}* segment average "
+                                  f"({sim_val:,.0f} vs {seg_val:,.0f}).")
             st.markdown("**Why this segment?**\n" + "\n".join(reasoning))
     else:
         st.info("Segment recommendation needs scikit-learn plus Age, income, sale_price and satisfaction_score columns.")
